@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">MultiSensors</string>
+    <string name="orientation_X">Orientation X: </string>
+    <string name="orientation_Y">Orientation Y: </string>
+    <string name="orientation_Z">Orientation Z: </string>
+    <string name="action_settings">Settings</string>
+
+</resources>
