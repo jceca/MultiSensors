@@ -349,9 +349,10 @@ public class FusedGyroscopeSensor implements SensorEventListener {
     }
 
     public void onAccelerationSensorChanged(float[] gravity, long timeStamp) {
-        // Get a local copy of the raw magnetic values from the device sensor.
+        /* Copy of the values of the sensor inputs */
         System.arraycopy(gravity, 0, this.gravity, 0, gravity.length);
 
+        /* Apply mean Filter to smooth the sensor inputs */
         this.gravity = meanFilterAcceleration.filterFloat(this.gravity);
 
         calculateOrientation();
@@ -359,16 +360,18 @@ public class FusedGyroscopeSensor implements SensorEventListener {
 
 
     public void onMagneticSensorChanged(float[] magnetic, long timeStamp) {
-        // Get a local copy of the raw magnetic values from the device sensor.
+        /* Copy of the values of the sensor inputs */
         System.arraycopy(magnetic, 0, this.magnetic, 0, magnetic.length);
 
+        /* Apply mean Filter to smooth the sensor inputs */
         this.magnetic = meanFilterMagnetic.filterFloat(this.magnetic);
     }
 
     public void onGravitySensorChanged(float[] gravity, long timeStamp) {
-        // Get a local copy of the raw magnetic values from the device sensor.
+        /* Copy of the values of the sensor inputs */
         System.arraycopy(gravity, 0, this.gravity, 0, gravity.length);
 
+        /* Apply mean Filter to smooth the sensor inputs */
         this.gravity = meanFilterAcceleration.filterFloat(this.gravity);
 
         calculateOrientation();

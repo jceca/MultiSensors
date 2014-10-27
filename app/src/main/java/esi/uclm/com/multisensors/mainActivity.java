@@ -60,7 +60,7 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
     private MeanFilter accelerationFilter;
     private MeanFilter magneticFilter;
 
-    // We need the SensorManager to register for Sensor Events.
+    /* We need the SensorManager to register for Sensor Events */
     private SensorManager mSensorManager;
 
     private TextView calibrationX;
@@ -88,9 +88,11 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
+        /**
+        * Handle action bar item clicks here. The action bar will
+        * automatically handle clicks on the Home/Up button, so long
+        * as you specify a parent activity in AndroidManifest.xml.
+        **/
         switch (item.getItemId()){
             case R.id.action_reset:
                 unregisterListeners();
@@ -139,20 +141,22 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
     }
 
     public void onAccelerationSensorChanged(float[] acceleration, long timeStamp) {
-        // Get a local copy of the raw magnetic values from the device sensor.
+        /* Copy of the values of the sensor inputs */
         System.arraycopy(acceleration, 0, this.acceleration, 0,
                 acceleration.length);
 
-        // Use a mean filter to smooth the sensor inputs
+        /* Apply mean Filter to smooth the sensor inputs */
         this.acceleration = accelerationFilter.filterFloat(this.acceleration);
 
-        // Count the number of samples received.
+        /* Count the number of counts */
         accelerationSampleCount++;
 
-        // Only determine the initial orientation after the acceleration sensor
-        // and magnetic sensor have had enough time to be smoothed by the mean
-        // filters. Also, only do this if the orientation hasn't already been
-        // determined since we only need it once.
+        /**
+        * Only determine the initial orientation after the acceleration sensor
+        * and magnetic sensor have had enough time to be smoothed by the mean
+        * filters. Also, only do this if the orientation hasn't already been
+        * determined since we only need it once.
+        **/
         if (accelerationSampleCount > MIN_SAMPLE_COUNT
                 && magneticSampleCount > MIN_SAMPLE_COUNT
                 && !hasInitialOrientation)
@@ -162,13 +166,13 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
     }
 
     public void onMagneticSensorChanged(float[] magnetic, long timeStamp) {
-        // Get a local copy of the raw magnetic values from the device sensor.
+        /* Copy of the values of the sensor inputs */
         System.arraycopy(magnetic, 0, this.magnetic, 0, magnetic.length);
 
-        // Use a mean filter to smooth the sensor inputs
+        /* Apply mean Filter to smooth the sensor inputs */
         this.magnetic = magneticFilter.filterFloat(this.magnetic);
 
-        // Count the number of samples received.
+        /* Count the number of counts */
         magneticSampleCount++;
     }
 
@@ -291,10 +295,10 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
 
     /* Initializing interface elements */
     private void initUI() {
-        // Get a decimal formatter for the text views
+        /* Decimal formatter for TextViews */
         df = new DecimalFormat("#.##");
 
-        // Initialize the calibrated text views
+        /* Initialize TextViews */
         calibrationX = (TextView) this.findViewById(R.id.calibrationX);
         calibrationY = (TextView) this.findViewById(R.id.calibrationY);
         calibrationZ = (TextView) this.findViewById(R.id.calibrationZ);
@@ -367,8 +371,7 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
                 mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_FASTEST);
 
-        // Do not register for gyroscope updates if we are going to use the
-        // fused version of the sensor...
+        /* If we don't use the FusedSensor*/
         if (!useFusedEstimation)
         {
             mSensorManager.registerListener(this,
@@ -377,15 +380,14 @@ public class mainActivity extends Activity implements SensorEventListener, Fused
 
         }
 
-        // If we want to use the fused version of the gyroscope sensor.
+        /* If we use the FusedSensor*/
         if (useFusedEstimation)
         {
             boolean hasGravity = mSensorManager.registerListener(
                     fusedGyroscopeSensor, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
                     SensorManager.SENSOR_DELAY_FASTEST);
 
-            // If for some reason the gravity sensor does not exist, fall back
-            // onto the acceleration sensor.
+            /* If the device does not have a gravity sensor, fall back */
             if (!hasGravity)
             {
                 mSensorManager.registerListener(fusedGyroscopeSensor,
