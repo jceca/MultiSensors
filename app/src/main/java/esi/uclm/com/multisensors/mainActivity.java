@@ -2,11 +2,15 @@ package esi.uclm.com.multisensors;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
@@ -15,21 +19,27 @@ import java.text.DecimalFormat;
 
 import static android.util.FloatMath.*;
 
-public class mainActivity extends Activity implements SensorEventListener{
+public class mainActivity extends Activity implements SensorEventListener, FusedGyroscopeSensorListener{
 
+    public static final float EPSILON = 0.000000001f;
+
+    private static final String tag = mainActivity.class.getSimpleName();
     private static final float NS2S = 1.0f / 1000000000.0f;
-    private static final float EPSILON = 0.000000001f;
     private static final int MEAN_FILTER_WINDOW = 10;
     private static final int MIN_SAMPLE_COUNT = 30;
 
+    private boolean hasInitialOrientation = false;
+    private boolean stateInitializedCalibrated = false;
+
+    private boolean useFusedEstimation = false;
 
     private DecimalFormat df;
 
-    private float[] deltaRotationVector;
-    private float[] deltaRotationMatrix;
-
-    private float[] gyroscopeOrientation;
+    // Calibrated maths.
     private float[] currentRotationMatrix;
+    private float[] deltaRotationMatrix;
+    private float[] deltaRotationVector;
+    private float[] gyroscopeOrientation;
 
     // accelerometer and magnetometer based rotation matrix
     private float[] initialRotationMatrix;
@@ -40,24 +50,23 @@ public class mainActivity extends Activity implements SensorEventListener{
     // magnetic field vector
     private float[] magnetic;
 
-    private MeanFilter accelerationFilter;
-    private MeanFilter magneticFilter;
-
-    // TIEMPOS DE REFRESCO
-    private float timestampOld = 0;
+    private FusedGyroscopeSensor fusedGyroscopeSensor;
 
     private int accelerationSampleCount = 0;
     private int magneticSampleCount = 0;
 
-    //COMPROBACIONES
-    boolean hasInitialOrientation = false;
-    boolean stateInitializedCalibrated = false;
+    private long timestampOld = 0;
 
+    private MeanFilter accelerationFilter;
+    private MeanFilter magneticFilter;
+
+    // We need the SensorManager to register for Sensor Events.
     private SensorManager mSensorManager;
 
-    TextView calibrationX;
-    TextView calibrationY;
-    TextView calibrationZ;
+    private TextView calibrationX;
+    private TextView calibrationY;
+    private TextView calibrationZ;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,7 +75,7 @@ public class mainActivity extends Activity implements SensorEventListener{
 
         initUI();
         initMaths();
-        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        initSensors();
         initFilters();
     }
 
@@ -82,11 +91,23 @@ public class mainActivity extends Activity implements SensorEventListener{
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-        if (id == R.id.action_settings) {
-            return true;
+        switch (item.getItemId()){
+            case R.id.action_reset:
+                unregisterListeners();
+                registerListeners();
+
+                return true;
+
+            case R.id.action_config:
+                Intent intent = new Intent();
+                intent.setClass(this, ConfigActivity.class);
+                startActivity(intent);
+
+                return true;
+
+            default:
+                return super.onOptionsItemSelected(item);
         }
-        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -94,6 +115,7 @@ public class mainActivity extends Activity implements SensorEventListener{
         //TODO
     }
 
+    @Override
     public void onSensorChanged(SensorEvent event) {
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
@@ -107,6 +129,13 @@ public class mainActivity extends Activity implements SensorEventListener{
         if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
             onGyroscopeSensorChanged(event.values, event.timestamp);
         }
+    }
+
+    @Override
+    public void onAngularVelocitySensorChanged(float[] angularVelocity, long timeStamp) {
+        calibrationX.setText(df.format(Math.toDegrees(angularVelocity[0])));
+        calibrationY.setText(df.format(Math.toDegrees(angularVelocity[1])));
+        calibrationZ.setText(df.format(Math.toDegrees(angularVelocity[2])));
     }
 
     public void onAccelerationSensorChanged(float[] acceleration, long timeStamp) {
@@ -143,16 +172,16 @@ public class mainActivity extends Activity implements SensorEventListener{
         magneticSampleCount++;
     }
 
+    /* Calculate orientation over time*/
     public void onGyroscopeSensorChanged(float[] gyroscope, long timestamp) {
 
-        // don't start until first accelerometer/magnetometer orientation has
-        // been acquired
+        /* Don't start until first orientation has been calculated */
         if (!hasInitialOrientation)
         {
             return;
         }
 
-        // Initialization of the gyroscope based rotation matrix
+        /* Initialization of the gyroscope based rotation matrix */
         if (!stateInitializedCalibrated) {
             currentRotationMatrix = matrixMultiplication(
                     currentRotationMatrix, initialRotationMatrix);
@@ -161,18 +190,25 @@ public class mainActivity extends Activity implements SensorEventListener{
         }
         // This timestep's delta rotation to be multiplied by the current rotation
         // after computing it from the gyro sample data.
-        if (timestamp != 0) {
+        if (timestampOld != 0 && stateInitializedCalibrated) {
+
             final float dT = (timestamp - timestampOld) * NS2S;
+
             // Axis of the rotation sample, not normalized yet.
             float axisX = gyroscope[0];
             float axisY = gyroscope[1];
             float axisZ = gyroscope[2];
 
-            // Calculate the angular speed of the sample
+            /* Angular speed */
             float omegaMagnitude = sqrt(axisX*axisX + axisY*axisY + axisZ*axisZ);
 
-            // Normalize the rotation vector if it's big enough to get the axis
-            // (that is, EPSILON should represent your maximum allowable margin of error)
+
+            /**
+            * Normalize rotator vector (in case it is big enough to get the axis
+            *
+            * EPSILON represents maximum allowable margin of error
+            *
+            * */
             if (omegaMagnitude > EPSILON) {
                 axisX /= omegaMagnitude;
                 axisY /= omegaMagnitude;
@@ -210,14 +246,12 @@ public class mainActivity extends Activity implements SensorEventListener{
         // in order to get the updated rotation.
         // rotationCurrent = rotationCurrent * deltaRotationMatrix;
 
-        calibrationX.setText(df.format(Math
-                .toDegrees(gyroscopeOrientation[0])));
-        calibrationY.setText(df.format(Math
-                .toDegrees(gyroscopeOrientation[1])));
-        calibrationZ.setText(df.format(Math
-                .toDegrees(gyroscopeOrientation[2])));
+        calibrationX.setText(df.format(Math.toDegrees(gyroscopeOrientation[0])));
+        calibrationY.setText(df.format(Math.toDegrees(gyroscopeOrientation[1])));
+        calibrationZ.setText(df.format(Math.toDegrees(gyroscopeOrientation[2])));
     }
 
+    /* Mathematical formula for calculating the rotation */
     private float[] matrixMultiplication(float[] a, float[] b) {
         float[] result = new float[9];
 
@@ -236,7 +270,8 @@ public class mainActivity extends Activity implements SensorEventListener{
         return result;
     }
 
-    private void initMaths(){
+    /* Initializing the variables for the data input */
+    private void initMaths() {
 
         acceleration = new float[3];
         magnetic = new float[3];
@@ -254,19 +289,18 @@ public class mainActivity extends Activity implements SensorEventListener{
         currentRotationMatrix[8] = 1.0f;
     }
 
-    private void initUI(){
+    /* Initializing interface elements */
+    private void initUI() {
         // Get a decimal formatter for the text views
         df = new DecimalFormat("#.##");
 
         // Initialize the calibrated text views
-        calibrationX = (TextView) this
-                .findViewById(R.id.calibrationX);
-        calibrationY = (TextView) this
-                .findViewById(R.id.calibrationY);
-        calibrationZ = (TextView) this
-                .findViewById(R.id.calibrationZ);
+        calibrationX = (TextView) this.findViewById(R.id.calibrationX);
+        calibrationY = (TextView) this.findViewById(R.id.calibrationY);
+        calibrationZ = (TextView) this.findViewById(R.id.calibrationZ);
     }
 
+    /* Initializing data filters to smooth the sensors input */
     private void initFilters() {
         accelerationFilter = new MeanFilter();
         accelerationFilter.setWindowSize(MEAN_FILTER_WINDOW);
@@ -275,13 +309,43 @@ public class mainActivity extends Activity implements SensorEventListener{
         magneticFilter.setWindowSize(MEAN_FILTER_WINDOW);
     }
 
-    private void reset(){
+    /* Initializing sensors managers */
+    private void initSensors() {
+        mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+        fusedGyroscopeSensor = new FusedGyroscopeSensor();
+    }
+
+    /* Unregister all listeners & clening data */
+    private void unregisterListeners(){
 
         mSensorManager.unregisterListener(this,
                 mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
 
         mSensorManager.unregisterListener(this,
                 mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
+
+        if (!useFusedEstimation)
+        {
+            mSensorManager.unregisterListener(this,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+        }
+
+        if (useFusedEstimation)
+        {
+            mSensorManager.unregisterListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY));
+
+            mSensorManager.unregisterListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER));
+
+            mSensorManager.unregisterListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD));
+
+            mSensorManager.unregisterListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE));
+
+            fusedGyroscopeSensor.removeObserver(this);
+        }
 
         initMaths();
 
@@ -292,7 +356,8 @@ public class mainActivity extends Activity implements SensorEventListener{
         stateInitializedCalibrated = false;
     }
 
-    private void restart(){
+    /* Registering the sensors listeners & start monitoring data*/
+    private void registerListeners() {
 
         mSensorManager.registerListener(this,
                 mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
@@ -302,17 +367,61 @@ public class mainActivity extends Activity implements SensorEventListener{
                 mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
                 SensorManager.SENSOR_DELAY_FASTEST);
 
-        mSensorManager.registerListener(this,
-                mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
-                SensorManager.SENSOR_DELAY_FASTEST);
+        // Do not register for gyroscope updates if we are going to use the
+        // fused version of the sensor...
+        if (!useFusedEstimation)
+        {
+            mSensorManager.registerListener(this,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                    SensorManager.SENSOR_DELAY_FASTEST);
 
+        }
+
+        // If we want to use the fused version of the gyroscope sensor.
+        if (useFusedEstimation)
+        {
+            boolean hasGravity = mSensorManager.registerListener(
+                    fusedGyroscopeSensor, mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+            // If for some reason the gravity sensor does not exist, fall back
+            // onto the acceleration sensor.
+            if (!hasGravity)
+            {
+                mSensorManager.registerListener(fusedGyroscopeSensor,
+                        mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                        SensorManager.SENSOR_DELAY_FASTEST);
+            }
+
+            mSensorManager.registerListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+            mSensorManager.registerListener(fusedGyroscopeSensor,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),
+                    SensorManager.SENSOR_DELAY_FASTEST);
+
+            fusedGyroscopeSensor.registerObserver(this);
+        }
     }
 
+    /* Read user preferences */
+    private void readPrefs() {
+        SharedPreferences prefs = PreferenceManager
+                .getDefaultSharedPreferences(this);
+
+        useFusedEstimation = prefs.getBoolean(ConfigActivity.FUSION_PREFERENCE,
+                false);
+
+        Log.d(tag, "Fusion: " + String.valueOf(useFusedEstimation));
+    }
+
+    /* Calculates the initial device orientation, need only once */
     private void calculateOrientation() {
         hasInitialOrientation = SensorManager.getRotationMatrix(
                 initialRotationMatrix, null, acceleration, magnetic);
 
-        // Remove the sensor observers since they are no longer required.
+        /* Remove the sensor observers since they are no longer required. */
         if (hasInitialOrientation)
         {
             mSensorManager.unregisterListener(this,
@@ -322,19 +431,19 @@ public class mainActivity extends Activity implements SensorEventListener{
         }
     }
 
-
     /* ESTADOS DE LA APLICACION */
-    @Override
+
     public void onResume(){
         super.onResume();
 
-        restart();
+        readPrefs();
+
+        registerListeners();
     }
 
-    @Override
     public void onPause(){
         super.onPause();
 
-        reset();
+        unregisterListeners();
     }
 }

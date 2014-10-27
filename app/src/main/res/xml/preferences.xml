@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" >
+
+    <PreferenceCategory android:title="Fusion Preferences" >
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:dialogTitle="Fuse Sensors"
+            android:key="fusion_preference"
+            android:summaryOff="Use Gyroscope Stand-Alone"
+            android:summaryOn="Use Gyroscope Fusion"
+            android:title="Fusion" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Units Preferences" >
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:dialogTitle="Units of Measure"
+            android:key="units_preference"
+            android:summaryOff="Use Degrees"
+            android:summaryOn="Use Radians"
+            android:title="Units" />
+    </PreferenceCategory>
+</PreferenceScreen>
