@@ -12,44 +12,44 @@
         android:text="@string/orientation_X"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/t_OrientationX" />
+        android:id="@+id/t_CalibrationX" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/orientationX"
-        android:layout_toEndOf="@+id/t_OrientationX"
-        android:layout_above="@+id/t_OrientationY"
-        android:layout_toRightOf="@+id/t_OrientationX" />
+        android:id="@+id/calibrationX"
+        android:layout_toEndOf="@+id/t_CalibrationX"
+        android:layout_above="@+id/t_CalibrationY"
+        android:layout_toRightOf="@+id/t_CalibrationX" />
 
     <TextView
         android:text="@string/orientation_Y"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/t_OrientationY"
-        android:layout_below="@+id/t_OrientationX" />
+        android:id="@+id/t_CalibrationY"
+        android:layout_below="@+id/t_CalibrationX" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/orientationY"
-        android:layout_below="@+id/t_OrientationX"
-        android:layout_toRightOf="@+id/t_OrientationX"
-        android:layout_toEndOf="@+id/t_OrientationX" />
+        android:id="@+id/calibrationY"
+        android:layout_below="@+id/t_CalibrationX"
+        android:layout_toRightOf="@+id/t_CalibrationX"
+        android:layout_toEndOf="@+id/t_CalibrationX" />
 
     <TextView
         android:text="@string/orientation_Z"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/t_OrientationZ"
-        android:layout_below="@+id/t_OrientationY" />
+        android:id="@+id/t_CalibrationZ"
+        android:layout_below="@+id/t_CalibrationY" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/orientationZ"
-        android:layout_below="@+id/t_OrientationY"
-        android:layout_toRightOf="@+id/t_OrientationY"
-        android:layout_toEndOf="@+id/t_OrientationY" />
+        android:id="@+id/calibrationZ"
+        android:layout_below="@+id/t_CalibrationY"
+        android:layout_toRightOf="@+id/t_CalibrationY"
+        android:layout_toEndOf="@+id/t_CalibrationY" />
 
 </RelativeLayout>
