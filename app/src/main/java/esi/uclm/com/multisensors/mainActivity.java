@@ -46,8 +46,8 @@ public class mainActivity extends Activity implements SensorEventListener{
     // TIEMPOS DE REFRESCO
     private float timestampOld = 0;
 
-    private int accelerationSampleCount;
-    private int magneticSampleCount;
+    private int accelerationSampleCount = 0;
+    private int magneticSampleCount = 0;
 
     //COMPROBACIONES
     boolean hasInitialOrientation = false;
